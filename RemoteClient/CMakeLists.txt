@@ -22,11 +22,13 @@ set(PROJECT_SOURCES
 
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
     find_package(Qt6 REQUIRED COMPONENTS Core)
+find_package(Qt6 REQUIRED COMPONENTS Widgets)
 
     qt_add_executable(RemoteClient
         MANUAL_FINALIZATION
         ${PROJECT_SOURCES}
         tcpclient.h tcpclient.cpp
+        ipaddressedit.h ipaddressedit.cpp
     )
 # Define target properties for Android with Qt 6 as:
 #    set_property(TARGET RemoteClient APPEND PROPERTY QT_ANDROID_PACKAGE_SOURCE_DIR
@@ -49,6 +51,8 @@ endif()
 target_link_libraries(RemoteClient PRIVATE Qt${QT_VERSION_MAJOR}::Widgets)
 target_link_libraries(RemoteClient PRIVATE Qt6::Core)
 target_link_libraries(RemoteClient PRIVATE Qt6::Network)
+target_link_libraries(RemoteClient PRIVATE Qt6::Widgets)
+target_include_directories(RemoteClient PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
 # Qt for iOS sets MACOSX_BUNDLE_GUI_IDENTIFIER automatically since Qt 6.1.
 # If you are developing for iOS or macOS you should consider setting an

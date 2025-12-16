@@ -33,9 +33,10 @@ class TcpClient : public QObject
 {
     Q_OBJECT
 public:
-    explicit TcpClient(QObject *parent = nullptr);
+    explicit TcpClient(const QString& ip, const quint16 port, QObject *parent = nullptr);
     ~TcpClient();
     void sendPacket(const CPacket& packet);
+    void updateInfo(const QString& ip, const quint16 port);
 
 
 signals:

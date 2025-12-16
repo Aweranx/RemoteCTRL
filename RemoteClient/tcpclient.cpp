@@ -77,8 +77,8 @@ int CPacket::size() const  {
 }
 
 
-TcpClient::TcpClient(QObject *parent)
-    : QObject{parent}, m_socket(new QTcpSocket(this)) {
+TcpClient::TcpClient(const QString& ip, const quint16 port, QObject *parent)
+    : QObject{parent}, m_socket(new QTcpSocket(this)), m_ip(ip), m_port(port) {
     // 连接成功信号
     connect(m_socket, &QTcpSocket::connected, this, &TcpClient::onConnected);
     // 有新数据可读信号
@@ -89,12 +89,17 @@ TcpClient::TcpClient(QObject *parent)
     connect(m_socket, &QTcpSocket::errorOccurred, this, &TcpClient::onErrorOccurred);
 }
 
+void TcpClient::updateInfo(const QString& ip, const quint16 port) {
+    m_ip = ip;
+    m_port = port;
+}
+
 void TcpClient::sendPacket(const CPacket& packet) {
     connectToServer();
-    if (m_socket->state() != QAbstractSocket::ConnectedState) {
-        qDebug() << "[TcpClient] 发送失败: 未连接到服务器";
-        return;
-    }
+    // if (m_socket->state() != QAbstractSocket::ConnectedState) {
+    //     qDebug() << "[TcpClient] 发送失败: 未连接到服务器";
+    //     return;
+    // }
     QByteArray sendData = packet.toByteArray();
 
     if (sendData.isEmpty()) {
@@ -126,11 +131,8 @@ void TcpClient::connectToServer() {
     m_socket->connectToHost(m_ip, m_port);
 }
 
-void TcpClient::onConnected()
-{
+void TcpClient::onConnected() {
     qDebug() << "连接服务器成功！";
-    // testConnect
-    sendPacket(CPacket(1981,NULL));
 }
 
 void TcpClient::onReadyRead()
@@ -165,5 +167,4 @@ TcpClient::~TcpClient() {
     if(m_socket->isOpen()) {
         m_socket->close();
     }
-    qDebug() << "析构";
 }
