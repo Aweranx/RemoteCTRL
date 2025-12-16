@@ -445,6 +445,7 @@ auto main() -> int
 				TRACE("AcceptClient return true\r\n");
 				CPacket packet;
 				pserver.GetPacket(packet);
+				TRACE("DealCommand ret %s\r\n", packet.Data());
 				int cmd = packet.sCmd;
 				TRACE("DealCommand ret %d\r\n", cmd);
 				if (cmd > 0) {

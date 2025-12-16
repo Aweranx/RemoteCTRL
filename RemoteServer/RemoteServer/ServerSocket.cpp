@@ -112,12 +112,12 @@ CServerSocket& CServerSocket::GetInstance() {
 CServerSocket::CServerSocket() {
 	m_client = INVALID_SOCKET;
 	if (InitSockEnv() == FALSE) {
-		MessageBox(NULL, _T("无法初始化套接字环境,请检查网络设置！"), _T("初始化错误！"), MB_OK | MB_ICONERROR);
+		MessageBox(NULL, _T("无法初始化套接字环境,请检查网络设置！1"), _T("初始化错误！"), MB_OK | MB_ICONERROR);
 		exit(0);
 	}
 	m_sock = socket(PF_INET, SOCK_STREAM, 0);
 	if (m_sock == -1) {
-		MessageBox(NULL, _T("无法初始化套接字环境,请检查网络设置！"), _T("初始化错误！"), MB_OK | MB_ICONERROR);
+		MessageBox(NULL, _T("无法初始化套接字环境,请检查网络设置！2"), _T("初始化错误！"), MB_OK | MB_ICONERROR);
 		exit(0);
 	}
 	sockaddr_in serv_adr;
@@ -126,11 +126,11 @@ CServerSocket::CServerSocket() {
 	serv_adr.sin_addr.s_addr = INADDR_ANY;
 	serv_adr.sin_port = htons(9527);
 	if (bind(m_sock, (sockaddr*)&serv_adr, sizeof(serv_adr)) == -1) {
-		MessageBox(NULL, _T("无法初始化套接字环境,请检查网络设置！"), _T("初始化错误！"), MB_OK | MB_ICONERROR);
+		MessageBox(NULL, _T("无法初始化套接字环境,请检查网络设置！3"), _T("初始化错误！"), MB_OK | MB_ICONERROR);
 		exit(0);
 	}
 	if (listen(m_sock, 1) == -1) {
-		MessageBox(NULL, _T("无法初始化套接字环境,请检查网络设置！"), _T("初始化错误！"), MB_OK | MB_ICONERROR);
+		MessageBox(NULL, _T("无法初始化套接字环境,请检查网络设置！4"), _T("初始化错误！"), MB_OK | MB_ICONERROR);
 		exit(0);
 	}
 }
