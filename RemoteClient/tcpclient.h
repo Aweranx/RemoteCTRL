@@ -6,6 +6,20 @@
 
 constexpr quint16 PACKET_HEAD = 0xFEFF;
 
+class FILEINFO {
+public:
+    FILEINFO() {
+        IsInvalid = false;
+        IsDirectory = -1;
+        HasNext = true;
+        memset(szFileName, 0, sizeof(szFileName));
+    }
+    int32_t IsInvalid;//是否有效
+    int32_t IsDirectory;//是否为目录 0 否 1 是
+    int32_t HasNext;//是否还有后续 0 没有 1 有
+    char szFileName[256];//文件名
+};
+
 class CPacket
 {
 public:
@@ -40,6 +54,7 @@ public:
 
 
 signals:
+    void recvPacket(CPacket& packet);
 
 private slots:
     // 处理连接成功
@@ -56,6 +71,7 @@ private:
     QTcpSocket* m_socket;
     QString m_ip;
     quint16 m_port;
+    CPacket m_packet;
 };
 
 #endif // TCPCLIENT_H

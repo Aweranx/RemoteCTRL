@@ -3,7 +3,9 @@
 
 #include <QMainWindow>
 #include "tcpclient.h"
-#include <QTimer>
+#include <QMap>
+#include <functional>
+#include <QTreeWidgetItem>
 QT_BEGIN_NAMESPACE
 namespace Ui {
 class MainWindow;
@@ -20,10 +22,15 @@ public:
 
 public slots:
     void testConnect();
+    void checkDriverInfo();
+    void dealCmd(CPacket& packet);
+    void onFileTreeItemDoubleClicked(QTreeWidgetItem *item, int column);
 
 private:
     Ui::MainWindow *ui;
     TcpClient* m_tcpclient;
-    QTimer* timer;
+    QMap<quint16, std::function<void(CPacket& packet)>> m_handler;
+    QTreeWidgetItem* m_currentItem;
+    void initHandler();
 };
 #endif // MAINWINDOW_H

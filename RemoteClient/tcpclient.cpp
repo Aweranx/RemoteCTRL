@@ -140,11 +140,12 @@ void TcpClient::onReadyRead()
     QByteArray data = m_socket->readAll();
 
     // 打印十六进制数据，方便查看每个字节
-    qDebug() << "收到原始数据(Hex):" << data.toHex(' ').toUpper();
+    // qDebug() << "收到原始数据(Hex):" << data.toHex(' ').toUpper();
 
     // 尝试解析
-    CPacket pack(data);
-    qDebug() << "解析收到命令:" << pack.sCmd << " 长度:" << pack.nLength;
+    m_packet = CPacket(data);
+    qDebug() << "解析收到命令:" << m_packet.sCmd << " 长度:" << m_packet.nLength;
+    emit recvPacket(m_packet);
 }
 
 void TcpClient::onDisconnected()

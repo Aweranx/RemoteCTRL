@@ -64,7 +64,7 @@ int MakeDirectoryInfo(CPacket& packet) {
         return -2;
     }
     _finddata_t fdata;
-    int hfind = 0;
+	intptr_t  hfind = 0;
     if ((hfind = _findfirst("*", &fdata)) == -1) {
         OutputDebugString(_T("没有找到任何文件！！"));
         FILEINFO finfo;
@@ -76,9 +76,11 @@ int MakeDirectoryInfo(CPacket& packet) {
     int count = 0;
     do {
         FILEINFO finfo;
+		memset(&finfo, 0, sizeof(finfo));
         finfo.IsDirectory = (fdata.attrib & _A_SUBDIR) != 0;
         memcpy(finfo.szFileName, fdata.name, strlen(fdata.name));
-        TRACE("%s\r\n", finfo.szFileName);
+        TRACE("file : %s\r\n", finfo.szFileName);
+		finfo.HasNext = TRUE;
         CPacket pack(2, (BYTE*)&finfo, sizeof(finfo));
         CServerSocket::GetInstance().Send(pack);
         count++;
@@ -89,6 +91,7 @@ int MakeDirectoryInfo(CPacket& packet) {
     finfo.HasNext = FALSE;
     CPacket pack(2, (BYTE*)&finfo, sizeof(finfo));
     CServerSocket::GetInstance().Send(pack);
+	_findclose(hfind);
     return 0;
 }
 
