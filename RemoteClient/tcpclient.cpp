@@ -96,10 +96,6 @@ void TcpClient::updateInfo(const QString& ip, const quint16 port) {
 
 void TcpClient::sendPacket(const CPacket& packet) {
     connectToServer();
-    // if (m_socket->state() != QAbstractSocket::ConnectedState) {
-    //     qDebug() << "[TcpClient] 发送失败: 未连接到服务器";
-    //     return;
-    // }
     QByteArray sendData = packet.toByteArray();
 
     if (sendData.isEmpty()) {
@@ -137,15 +133,40 @@ void TcpClient::onConnected() {
 
 void TcpClient::onReadyRead()
 {
-    QByteArray data = m_socket->readAll();
+    QByteArray temp = m_socket->readAll();
+    m_buffer.append(temp);
 
-    // 打印十六进制数据，方便查看每个字节
-    // qDebug() << "收到原始数据(Hex):" << data.toHex(' ').toUpper();
+    // 判断头是否读完 -> 校验head -> 比较读到的数据size和nLength
+    // 不够则继续等待 -> 够了提取出来CPacket发送信号
+    while (m_buffer.size() >= 6) {
+        QDataStream stream(m_buffer);
+        stream.setByteOrder(QDataStream::LittleEndian);
+        quint16 head;
+        quint32 bodyLen;
+        stream >> head >> bodyLen;
 
-    // 尝试解析
-    m_packet = CPacket(data);
-    qDebug() << "解析收到命令:" << m_packet.sCmd << " 长度:" << m_packet.nLength;
-    emit recvPacket(m_packet);
+        if (head != PACKET_HEAD) {
+            m_buffer.remove(0, 1);
+            continue;
+        }
+
+        // 总大小 = Head(2) + Length字段本身(4) + nLength(Cmd+Data+Sum)
+        int totalPacketSize = 2 + 4 + bodyLen;
+        // 检查缓冲区数据是否足够一个完整的包
+        if (m_buffer.size() < totalPacketSize) {
+            break;
+        }
+        // 数据足够，提取这一个完整的包
+        QByteArray packetData = m_buffer.left(totalPacketSize);
+        m_buffer.remove(0, totalPacketSize);
+        CPacket pack(packetData);
+        if (pack.sHead == PACKET_HEAD) {
+            qDebug() << "成功解析完整包 | Cmd:" << pack.sCmd << " 数据大小:" << pack.strData.size();
+            emit recvPacket(pack);
+        } else {
+            qDebug() << "解析后的包头校验失败";
+        }
+    }
 }
 
 void TcpClient::onDisconnected()

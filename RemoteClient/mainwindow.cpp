@@ -71,15 +71,9 @@ void MainWindow::initHandler() {
         FILEINFO finfo;
         memcpy(&finfo, payload.constData(), sizeof(FILEINFO));
         QString fileName = QString::fromLocal8Bit(finfo.szFileName);
-
-        qDebug() << "收到文件:" << fileName;
-
-        if (m_currentItem == nullptr) return; //以此防崩溃
-
-        // 构造函数传入父节点指针，会自动 addChild
-        QTreeWidgetItem *item = new QTreeWidgetItem(m_currentItem);
-        item->setText(0, fileName);
-
+        if (fileName == "." || fileName == ".." || finfo.HasNext == false) {
+            return;
+        }
         QString parentPath = m_currentItem->data(0, Qt::UserRole).toString();
         QString fullPath;
         if (parentPath.endsWith('/') || parentPath.endsWith('\\')) {
@@ -87,16 +81,32 @@ void MainWindow::initHandler() {
         } else {
             fullPath = parentPath + "/" + fileName;
         }
-        item->setData(0, Qt::UserRole, fullPath);
-        if (finfo.IsDirectory) {
-            item->setIcon(0, QApplication::style()->standardIcon(QStyle::SP_DirIcon));
-            // 标记该节点也是目录，可以再次展开
-            item->setData(0, Qt::UserRole + 1, true);
+        if(finfo.IsDirectory > 0) {
+            if (m_currentItem == nullptr) return; //以此防崩溃
+
+            // 构造函数传入父节点指针，会自动 addChild
+            QTreeWidgetItem *item = new QTreeWidgetItem(m_currentItem);
+            item->setText(0, fileName);
+            item->setData(0, Qt::UserRole, fullPath);
+            if (finfo.IsDirectory) {
+                item->setIcon(0, QApplication::style()->standardIcon(QStyle::SP_DirIcon));
+                // 标记该节点也是目录，可以再次展开
+                item->setData(0, Qt::UserRole + 1, true);
+            } else {
+                item->setIcon(0, QApplication::style()->standardIcon(QStyle::SP_FileIcon));
+                item->setData(0, Qt::UserRole + 1, false);
+            }
+            m_currentItem->setExpanded(true);
         } else {
-            item->setIcon(0, QApplication::style()->standardIcon(QStyle::SP_FileIcon));
-            item->setData(0, Qt::UserRole + 1, false);
+            QListWidgetItem *item = new QListWidgetItem(ui->fileList);
+            item->setText(fileName);
+            item->setIcon(QApplication::style()->standardIcon(QStyle::SP_FileIcon));
+            item->setData(Qt::UserRole, fullPath);
+            // 存储类型标记 (0 或 false 表示不是目录)
+            item->setData(Qt::UserRole + 1, false);
         }
-        m_currentItem->setExpanded(true);
+
+
     };
 }
 
@@ -109,6 +119,7 @@ void MainWindow::onFileTreeItemDoubleClicked(QTreeWidgetItem *item, int column)
     qDebug() << "双击了路径:" << path;
     m_currentItem = item;
     qDeleteAll(item->takeChildren());
+    ui->fileList->clear();
 
     CPacket pack(2, path.toUtf8());
     m_tcpclient->sendPacket(pack);

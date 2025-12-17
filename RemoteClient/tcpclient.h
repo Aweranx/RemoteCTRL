@@ -72,6 +72,7 @@ private:
     QString m_ip;
     quint16 m_port;
     CPacket m_packet;
+    QByteArray m_buffer;
 };
 
 #endif // TCPCLIENT_H
