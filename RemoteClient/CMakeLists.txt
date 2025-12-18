@@ -29,6 +29,7 @@ find_package(Qt6 REQUIRED COMPONENTS Widgets)
         ${PROJECT_SOURCES}
         tcpclient.h tcpclient.cpp
         ipaddressedit.h ipaddressedit.cpp
+        screendlg.h screendlg.cpp screendlg.ui
     )
 # Define target properties for Android with Qt 6 as:
 #    set_property(TARGET RemoteClient APPEND PROPERTY QT_ANDROID_PACKAGE_SOURCE_DIR

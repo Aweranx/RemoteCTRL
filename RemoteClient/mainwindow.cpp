@@ -3,6 +3,9 @@
 #include "ipaddressedit.h"
 #include <QPushButton>
 #include <QTreeWidget>
+#include <QMessageBox>
+#include <QStandardPaths>
+#include <QDir>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -19,6 +22,9 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->fileBtn, &QPushButton::clicked, this , &MainWindow::checkDriverInfo);
     connect(m_tcpclient, &TcpClient::recvPacket, this, &MainWindow::dealCmd);
     connect(ui->fileTree, &QTreeWidget::itemDoubleClicked, this, &MainWindow::onFileTreeItemDoubleClicked);
+    ui->fileList->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(ui->fileList, &QListWidget::customContextMenuRequested,
+            this, &MainWindow::onFileListContextMenu);
 
 
 }
@@ -105,8 +111,62 @@ void MainWindow::initHandler() {
             // 存储类型标记 (0 或 false 表示不是目录)
             item->setData(Qt::UserRole + 1, false);
         }
+    };
+    m_handler[3] = [this](CPacket& packet){
+        qDebug() << "运行";
+    };
+    m_handler[4] = [this](CPacket& packet){
+        QByteArray payload = packet.strData;
+        // 收到空包 (Server: CPacket pack(4, NULL, 0))
+        if (payload.size() == 0) {
+            if (m_downloadFile.isOpen()) {
+                m_downloadFile.close();
+                m_isDownloading = false;
+                QMessageBox::information(this, "提示", "下载完成！");
+                qDebug() << "文件接收完毕，实际接收大小:" << m_receivedSize;
+            }
+            return;
+        }
+        // 第一个包只传来头
+        // 收到文件大小头 (Server: 发送 8字节 long long)
+        // 处于下载模式 且 文件还没打开
+        if (m_isDownloading && !m_downloadFile.isOpen()) {
+            if (payload.size() == 8) {
+                qint64 serverSize = 0;
+                // 从 QByteArray 中取出 long long (8字节)
+                memcpy(&serverSize, payload.constData(), 8);
 
+                // 服务端逻辑：如果是 0，代表 fopen 失败
+                if (serverSize == 0) {
+                    QMessageBox::warning(this, "错误", "服务器无法打开该文件（可能被占用或不存在）");
+                    m_isDownloading = false;
+                    return;
+                }
+                qint64 m_totalSize = serverSize;
+                m_receivedSize = 0;
+                if (!m_downloadFile.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+                    QMessageBox::warning(this, "错误", "无法打开本地文件进行写入：" + m_downloadFile.fileName());
+                    m_isDownloading = false;
+                    return;
+                }
+                qDebug() << "收到头部，文件大小:" << m_totalSize << " 开始下载...";
+            } else {
+                qDebug() << "错误：期待收到8字节文件头，但收到了" << payload.size() << "字节";
+            }
+            return;
+        }
 
+        // 收到文件内容数据
+        if (m_downloadFile.isOpen()) {
+            qint64 len = m_downloadFile.write(payload);
+            if (len != -1) {
+                m_receivedSize += len;
+            }
+        }
+    };
+
+    m_handler[9] = [this](CPacket& packet){
+        qDebug() << "删除";
     };
 }
 
@@ -123,6 +183,52 @@ void MainWindow::onFileTreeItemDoubleClicked(QTreeWidgetItem *item, int column)
 
     CPacket pack(2, path.toUtf8());
     m_tcpclient->sendPacket(pack);
+}
+
+void MainWindow::onFileListContextMenu(const QPoint &pos)
+{
+    QListWidgetItem *item = ui->fileList->itemAt(pos);
+    if (item == nullptr) {
+        return;
+    }
+
+    QMenu menu(this);
+    QAction *pDeleteAction = menu.addAction("删除");
+    pDeleteAction->setIcon(QApplication::style()->standardIcon(QStyle::SP_TrashIcon));
+    QAction *pRunAction = menu.addAction("运行");
+    pRunAction->setIcon(QApplication::style()->standardIcon(QStyle::SP_MediaPlay));
+    QAction *pDownloadAction = menu.addAction("下载");
+    pDownloadAction->setIcon(QApplication::style()->standardIcon(QStyle::SP_ArrowDown));
+
+    QAction *pSelectedAction = menu.exec(QCursor::pos());
+    QString fullPath = item->data(Qt::UserRole).toString();
+    if (fullPath.isEmpty()) return;
+    if (pSelectedAction == pDeleteAction) {
+        int ret = QMessageBox::question(this, "确认删除",
+                                        "确定要删除文件吗？\n" + fullPath,
+                                        QMessageBox::Yes | QMessageBox::No);
+        if (ret != QMessageBox::Yes) return;
+        CPacket pack(9, fullPath.toLocal8Bit());
+        m_tcpclient->sendPacket(pack);
+        int row = ui->fileList->row(item);
+        delete ui->fileList->takeItem(row);
+    } else if(pSelectedAction == pRunAction) {
+        CPacket pack(3, fullPath.toLocal8Bit());
+        m_tcpclient->sendPacket(pack);
+    } else if(pSelectedAction == pDownloadAction) {
+        QString downloadDir = QStandardPaths::writableLocation(QStandardPaths::DownloadLocation);
+        QString fileName = item->text();
+        QString localPath = downloadDir + "/" + fileName;
+        localPath = QDir::toNativeSeparators(localPath);
+        qDebug() << "准备下载文件，保存路径为:" << localPath;
+        if (m_downloadFile.isOpen()) {
+            m_downloadFile.close();
+        }
+        m_downloadFile.setFileName(localPath);
+        m_isDownloading = true;
+        CPacket pack(4, fullPath.toLocal8Bit());
+        m_tcpclient->sendPacket(pack);
+    }
 }
 
 MainWindow::~MainWindow()
