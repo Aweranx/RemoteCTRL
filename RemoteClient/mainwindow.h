@@ -32,11 +32,12 @@ public slots:
     void onFileListContextMenu(const QPoint &pos);
     void lockMachine();
     void unLockMachine();
+    void sendMousePacket(const MOUSEEV& mouse);
 
 private:
     Ui::MainWindow *ui;
     TcpClient* m_tcpclient;
-    QMap<quint16, std::function<void(CPacket& packet)>> m_handler;
+    QMap<ControlCmd, std::function<void(CPacket& packet)>> m_handler;
     QTreeWidgetItem* m_currentItem;
     QFile m_downloadFile;
     bool m_isDownloading;

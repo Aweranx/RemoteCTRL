@@ -33,42 +33,48 @@ MainWindow::MainWindow(QWidget *parent)
 
     timer = new QTimer(this);
     connect(timer, &QTimer::timeout, this, [this](){
-        CPacket packet(6, NULL);
+        CPacket packet(ControlCmd::ScreenSpy, NULL);
         m_tcpclient->sendPacket(packet);
     });
     connect(m_watchDlg, &WatchDlg::stopWatch, this, [this](){
         timer->stop();
         qDebug() << "停止watch";
     });
+    connect(m_watchDlg, &WatchDlg::sigSendMouseData, this, &MainWindow::sendMousePacket);
 }
 
 void MainWindow::testConnect() {
-    CPacket packet(1981, NULL);
+    CPacket packet(ControlCmd::TestConnect, NULL);
     m_tcpclient->sendPacket(packet);
 }
 
 void MainWindow::checkDriverInfo() {
-    CPacket packet(1, NULL);
+    CPacket packet(ControlCmd::GetDisk, NULL);
     m_tcpclient->sendPacket(packet);
 }
 
 void MainWindow::watchServer() {
     m_watchDlg->show();
-    timer->start(4000);
-    CPacket packet(6, NULL);
+    timer->start(1000);
+    CPacket packet(ControlCmd::ScreenSpy, NULL);
     m_tcpclient->sendPacket(packet);
 }
 
 void MainWindow::lockMachine() {
-    CPacket packet(7, NULL);
+    CPacket packet(ControlCmd::LockMachine, NULL);
     m_tcpclient->sendPacket(packet);
     // QTimer::singleShot(10000, [this](){
     //     unLockMachine();
     // });
 }
 void MainWindow::unLockMachine() {
-    CPacket packet(8, NULL);
+    CPacket packet(ControlCmd::UnlockMachine, NULL);
     m_tcpclient->sendPacket(packet);
+}
+void MainWindow::sendMousePacket(const MOUSEEV& mouse)
+{
+    CPacket pack(ControlCmd::MouseEvent, QByteArray((char*)&mouse, sizeof(mouse)));
+    m_tcpclient->sendPacket(pack);
 }
 
 void MainWindow::dealCmd(CPacket& packet) {
@@ -76,10 +82,10 @@ void MainWindow::dealCmd(CPacket& packet) {
 }
 
 void MainWindow::initHandler() {
-    m_handler[1981] =  [](CPacket& packet){
+    m_handler[ControlCmd::TestConnect] =  [](CPacket& packet){
         qDebug() << "测试收到";
     };
-    m_handler[1] = [this](CPacket& packet){
+    m_handler[ControlCmd::GetDisk] = [this](CPacket& packet){
         QByteArray payload = packet.strData;
         QString diskStr = QString::fromUtf8(payload);
         ui->fileTree->clear();
@@ -90,17 +96,16 @@ void MainWindow::initHandler() {
                 qDebug() << "发现盘符:" << disk;
                 // 创建一个新的树节点，父对象设为 fileTree 表示它是顶层节点
                 QTreeWidgetItem *item = new QTreeWidgetItem(ui->fileTree);
+                // 显示文本与内容文本分开赋值
                 item->setText(0, disk + ":");
-                // 使用 Qt 内置的磁盘图标
                 item->setIcon(0, QApplication::style()->standardIcon(QStyle::SP_DriveHDIcon));
-                // 将纯盘符字符串（如 "C"）存入 UserRole，方便后续双击事件获取
                 item->setData(0, Qt::UserRole, disk + ":/");
             }
         } else {
             qDebug() << "没有检测到任何磁盘";
         }
     };
-    m_handler[2] = [this](CPacket& packet){
+    m_handler[ControlCmd::GetFiles] = [this](CPacket& packet){
         QByteArray payload = packet.strData;
         if (payload.size() < (int)sizeof(FILEINFO)) {
             qDebug() << "数据包长度不足，无法解析 FILEINFO";
@@ -144,10 +149,10 @@ void MainWindow::initHandler() {
             item->setData(Qt::UserRole + 1, false);
         }
     };
-    m_handler[3] = [this](CPacket& packet){
+    m_handler[ControlCmd::RunFile] = [this](CPacket& packet){
         qDebug() << "运行";
     };
-    m_handler[4] = [this](CPacket& packet){
+    m_handler[ControlCmd::DownloadFile] = [this](CPacket& packet){
         QByteArray payload = packet.strData;
         // 收到空包 (Server: CPacket pack(4, NULL, 0))
         if (payload.size() == 0) {
@@ -196,7 +201,7 @@ void MainWindow::initHandler() {
             }
         }
     };
-    m_handler[6] = [this](CPacket& packet) {
+    m_handler[ControlCmd::ScreenSpy] = [this](CPacket& packet) {
         QByteArray imgData = packet.strData;
 
         QImage img;
@@ -208,15 +213,18 @@ void MainWindow::initHandler() {
                      << " 数据大小:" << imgData.size();
         }
     };
-    m_handler[7] = [this](CPacket& packet) {
+    m_handler[ControlCmd::LockMachine] = [this](CPacket& packet) {
         qDebug() << "锁机";
     };
-    m_handler[8] = [this](CPacket& packet) {
+    m_handler[ControlCmd::UnlockMachine] = [this](CPacket& packet) {
         qDebug() << "解锁";
     };
 
-    m_handler[9] = [this](CPacket& packet){
+    m_handler[ControlCmd::DelFile] = [this](CPacket& packet){
         qDebug() << "删除";
+    };
+    m_handler[ControlCmd::MouseEvent] = [this](CPacket& packet) {
+        qDebug() << "鼠标";
     };
 }
 
@@ -231,7 +239,7 @@ void MainWindow::onFileTreeItemDoubleClicked(QTreeWidgetItem *item, int column)
     qDeleteAll(item->takeChildren());
     ui->fileList->clear();
 
-    CPacket pack(2, path.toUtf8());
+    CPacket pack(ControlCmd::GetFiles, path.toUtf8());
     m_tcpclient->sendPacket(pack);
 }
 
@@ -258,12 +266,12 @@ void MainWindow::onFileListContextMenu(const QPoint &pos)
                                         "确定要删除文件吗？\n" + fullPath,
                                         QMessageBox::Yes | QMessageBox::No);
         if (ret != QMessageBox::Yes) return;
-        CPacket pack(9, fullPath.toLocal8Bit());
+        CPacket pack(ControlCmd::DelFile, fullPath.toLocal8Bit());
         m_tcpclient->sendPacket(pack);
         int row = ui->fileList->row(item);
         delete ui->fileList->takeItem(row);
     } else if(pSelectedAction == pRunAction) {
-        CPacket pack(3, fullPath.toLocal8Bit());
+        CPacket pack(ControlCmd::RunFile, fullPath.toLocal8Bit());
         m_tcpclient->sendPacket(pack);
     } else if(pSelectedAction == pDownloadAction) {
         QString downloadDir = QStandardPaths::writableLocation(QStandardPaths::DownloadLocation);
@@ -276,7 +284,7 @@ void MainWindow::onFileListContextMenu(const QPoint &pos)
         }
         m_downloadFile.setFileName(localPath);
         m_isDownloading = true;
-        CPacket pack(4, fullPath.toLocal8Bit());
+        CPacket pack(ControlCmd::DownloadFile, fullPath.toLocal8Bit());
         m_tcpclient->sendPacket(pack);
     }
 }

@@ -1,6 +1,25 @@
 #pragma once
 #include "pch.h"
 #include "framework.h"
+enum class ControlCmd : WORD {
+	Invalid = 0,
+	TestConnect = 0x07BD, // 1981: 测试连接
+
+	// 磁盘与文件
+	GetDisk = 1,
+	GetFiles = 2,
+	RunFile = 3,
+	DelFile = 4, 
+	DownloadFile = 5, 
+
+	// 鼠标与屏幕
+	MouseEvent = 6,
+	ScreenSpy = 7,
+
+	// 系统控制
+	LockMachine = 8,
+	UnlockMachine = 9
+};
 class MOUSEEV {
 public:
 	MOUSEEV() {
@@ -33,7 +52,7 @@ public:
 class CPacket {
 public:
 	CPacket();
-	CPacket(WORD nCmd, const BYTE* pData, size_t nSize);
+	CPacket(ControlCmd nCmd, const BYTE* pData, size_t nSize);
 	CPacket(const CPacket& pack);
 	CPacket(const BYTE* pData, size_t& nSize);
 	~CPacket();
@@ -45,7 +64,7 @@ public:
 public:
 	WORD sHead;//固定位 0xFEFF
 	DWORD nLength;//包长度（从控制命令开始，到和校验结束）
-	WORD sCmd;//控制命令
+	ControlCmd sCmd;//控制命令
 	std::string strData;//包数据
 	WORD sSum;//和校验
 	std::string strOut;//整个包的数据

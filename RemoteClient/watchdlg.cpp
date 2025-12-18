@@ -10,12 +10,16 @@ WatchDlg::WatchDlg(QWidget *parent)
     ui->setupUi(this);
     connect(ui->lockBtn, &QPushButton::clicked, this, &WatchDlg::lockBtnClicked);
     connect(ui->unLockBtn, &QPushButton::clicked, this, &WatchDlg::unLockBtnClicked);
+    connect(ui->watchWidget, &ScreenWidget::sigMouseEvent,
+            this, &WatchDlg::sigSendMouseData);
 }
 
 void WatchDlg::closeEvent(QCloseEvent* event) {
     emit stopWatch();
     event->accept();
 }
+
+
 
 WatchDlg::~WatchDlg()
 {

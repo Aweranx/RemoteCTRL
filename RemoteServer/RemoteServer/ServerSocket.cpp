@@ -1,8 +1,8 @@
 #include "pch.h"
 #include "ServerSocket.h"
 
-CPacket::CPacket() :sHead(0), nLength(0), sCmd(0), sSum(0) {}
-CPacket::CPacket(WORD nCmd, const BYTE* pData, size_t nSize) {
+CPacket::CPacket() :sHead(0), nLength(0), sCmd(ControlCmd::Invalid), sSum(0) {}
+CPacket::CPacket(ControlCmd nCmd, const BYTE* pData, size_t nSize) {
 	sHead = 0xFEFF;
 	nLength = nSize + 4;
 	sCmd = nCmd;
@@ -44,7 +44,7 @@ CPacket::CPacket(const BYTE* pData, size_t& nSize) {
 		nSize = 0;
 		return;
 	}
-	sCmd = *(WORD*)(pData + i); i += 2;
+	sCmd = *(ControlCmd*)(pData + i); i += 2;
 	if (nLength > 4) {
 		strData.resize(nLength - 2 - 2);
 		memcpy((void*)strData.c_str(), pData + i, nLength - 4);
@@ -81,23 +81,18 @@ const char* CPacket::Data() {
 	BYTE* pData = (BYTE*)strOut.c_str();
 	*(WORD*)pData = sHead; pData += 2;
 	*(DWORD*)(pData) = nLength; pData += 4;
-	*(WORD*)pData = sCmd; pData += 2;
+	*(ControlCmd*)pData = sCmd; pData += 2;
 	memcpy(pData, strData.c_str(), strData.size()); pData += strData.size();
 	*(WORD*)pData = sSum;
 	return strOut.c_str();
 }
 
 bool CPacket::GetFilePath(std::string& strPath) {
-	if (((sCmd >= 2) && (sCmd <= 4)) ||
-		(sCmd == 9))
-	{
-		strPath = strData;
-		return true;
-	}
-	return false;
+	strPath = strData;
+	return true;
 }
 bool CPacket::GetMouseEvent(MOUSEEV& mouse) {
-	if (sCmd == 5) {
+	if (sCmd == ControlCmd::MouseEvent) {
 		memcpy(&mouse, strData.c_str(), sizeof(MOUSEEV));
 		return true;
 	}

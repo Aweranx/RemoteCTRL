@@ -2,6 +2,8 @@
 #define WATCHDLG_H
 
 #include <QMainWindow>
+#include <QMouseEvent>
+#include "tcpclient.h"
 
 namespace Ui {
 class WatchDlg;
@@ -18,13 +20,17 @@ public:
 protected:
     void closeEvent(QCloseEvent* event) override;
 
+
+
 signals:
     void lockBtnClicked();
     void unLockBtnClicked();
     void stopWatch();
+    void sigSendMouseData(const MOUSEEV& ev);
 
 private:
     Ui::WatchDlg *ui;
+
 };
 
 #endif // WATCHDLG_H

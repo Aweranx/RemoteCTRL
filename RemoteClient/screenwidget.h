@@ -2,6 +2,8 @@
 #define SCREENWIDGET_H
 
 #include <QWidget>
+#include "tcpclient.h"
+#include <QMouseEvent>
 
 class ScreenWidget : public QWidget
 {
@@ -12,12 +14,18 @@ public:
     void updateImage(const QImage& img);
 
 protected:
-    // 重写绘图事件
     void paintEvent(QPaintEvent *event) override;
-
-private:
-    QImage m_image; // 保存当前的屏幕截图
+    void mousePressEvent(QMouseEvent *event) override;
+    void mouseReleaseEvent(QMouseEvent *event) override;
+    void mouseDoubleClickEvent(QMouseEvent *event) override;
+    void mouseMoveEvent(QMouseEvent *event) override;
 signals:
+    void sigMouseEvent(const MOUSEEV& ev);
+private:
+    MOUSEEV createMouseEvent(QMouseEvent *event, int action);
+    QImage m_image; // 保存当前的屏幕截图
+    int m_remoteWidth = 2560;
+    int m_remoteHeight = 1440;
 };
 
 #endif // SCREENWIDGET_H

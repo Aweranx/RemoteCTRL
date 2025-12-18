@@ -1,9 +1,9 @@
 #include "tcpclient.h"
 #include <QDebug>
 
-CPacket::CPacket() :sHead(0), nLength(0), sCmd(0), sSum(0) {}
+CPacket::CPacket() :sHead(0), nLength(0), sCmd(ControlCmd::Invalid), sSum(0) {}
 
-CPacket::CPacket(quint16 nCmd, const QByteArray& pData) {
+CPacket::CPacket(ControlCmd nCmd, const QByteArray& pData) {
     sHead = PACKET_HEAD;
     sCmd = nCmd;
     strData = pData;
@@ -21,7 +21,7 @@ CPacket::CPacket(const QByteArray& rawData) {
     stream.setByteOrder(QDataStream::LittleEndian); // 必须设置小端序
 
     stream >> sHead;
-    if (sHead != 0xFEFF) {
+    if (sHead != PACKET_HEAD) {
         return;
     }
     stream >> nLength;
@@ -116,7 +116,7 @@ void TcpClient::sendPacket(const CPacket& packet) {
         // Qt 默认是异步发送，flush() 会阻塞直到数据写入底层 socket
         // m_socket->flush();
 
-        qDebug() << "[TcpClient] 发送成功 | 命令:" << QString::number(packet.sCmd, 16).toUpper()
+        qDebug() << "[TcpClient] 发送成功 | 命令:" << QString::number(static_cast<quint16>(packet.sCmd), 16).toUpper()
                  << " | 大小:" << bytesWritten << "字节";
     }
 }
@@ -161,7 +161,7 @@ void TcpClient::onReadyRead()
         m_buffer.remove(0, totalPacketSize);
         CPacket pack(packetData);
         if (pack.sHead == PACKET_HEAD) {
-            qDebug() << "成功解析完整包 | Cmd:" << pack.sCmd << " 数据大小:" << pack.strData.size();
+            qDebug() << "成功解析完整包 | Cmd:" << static_cast<quint16>(pack.sCmd) << " 数据大小:" << pack.strData.size();
             emit recvPacket(pack);
         } else {
             qDebug() << "解析后的包头校验失败";

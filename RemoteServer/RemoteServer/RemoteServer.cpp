@@ -42,7 +42,7 @@ int MakeDriverInfo() {//1==>A 2==>B 3==>C ... 26==>Z
             result += 'A' + i - 1;
         }
     }
-    CPacket pack(1, (BYTE*)result.c_str(), result.size());//打包用的
+    CPacket pack(ControlCmd::GetDisk, (BYTE*)result.c_str(), result.size());//打包用的
     Dump((BYTE*)pack.Data(), pack.Size());
     CServerSocket::GetInstance().Send(pack);
     return 0;
@@ -58,7 +58,7 @@ int MakeDirectoryInfo(CPacket& packet) {
     if (_chdir(strPath.c_str()) != 0) {
         FILEINFO finfo;
         finfo.HasNext = FALSE;
-        CPacket pack(2, (BYTE*)&finfo, sizeof(finfo));
+        CPacket pack(ControlCmd::GetFiles, (BYTE*)&finfo, sizeof(finfo));
         CServerSocket::GetInstance().Send(pack);
         OutputDebugString(_T("没有权限访问目录！！"));
         return -2;
@@ -69,7 +69,7 @@ int MakeDirectoryInfo(CPacket& packet) {
         OutputDebugString(_T("没有找到任何文件！！"));
         FILEINFO finfo;
         finfo.HasNext = FALSE;
-        CPacket pack(2, (BYTE*)&finfo, sizeof(finfo));
+        CPacket pack(ControlCmd::GetFiles, (BYTE*)&finfo, sizeof(finfo));
         CServerSocket::GetInstance().Send(pack);
         return -3;
     }
@@ -81,7 +81,7 @@ int MakeDirectoryInfo(CPacket& packet) {
         memcpy(finfo.szFileName, fdata.name, strlen(fdata.name));
         TRACE("file : %s\r\n", finfo.szFileName);
 		finfo.HasNext = TRUE;
-        CPacket pack(2, (BYTE*)&finfo, sizeof(finfo));
+        CPacket pack(ControlCmd::GetFiles, (BYTE*)&finfo, sizeof(finfo));
         CServerSocket::GetInstance().Send(pack);
         count++;
     } while (!_findnext(hfind, &fdata));
@@ -89,7 +89,7 @@ int MakeDirectoryInfo(CPacket& packet) {
     //发送信息到控制端
     FILEINFO finfo;
     finfo.HasNext = FALSE;
-    CPacket pack(2, (BYTE*)&finfo, sizeof(finfo));
+    CPacket pack(ControlCmd::GetFiles, (BYTE*)&finfo, sizeof(finfo));
     CServerSocket::GetInstance().Send(pack);
 	_findclose(hfind);
     return 0;
@@ -99,7 +99,7 @@ int RunFile(CPacket& packet) {
 	std::string strPath;
 	packet.GetFilePath(strPath);
 	ShellExecuteA(NULL, NULL, strPath.c_str(), NULL, NULL, SW_SHOWNORMAL);
-	CPacket pack(3, NULL, 0);
+	CPacket pack(ControlCmd::RunFile, NULL, 0);
 	CServerSocket::GetInstance().Send(pack);
 	return 0;
 }
@@ -111,26 +111,26 @@ int DownloadFile(CPacket& packet) {
 	FILE* pFile = NULL;
 	errno_t err = fopen_s(&pFile, strPath.c_str(), "rb");
 	if (err != 0) {
-		CPacket  pack(4, (BYTE*)&data, 8);
+		CPacket  pack(ControlCmd::DownloadFile, (BYTE*)&data, 8);
 		CServerSocket::GetInstance().Send(pack);
 		return -1;
 	}
 	if (pFile != NULL) {
 		fseek(pFile, 0, SEEK_END);
 		data = _ftelli64(pFile);
-		CPacket head(4, (BYTE*)&data, 8);
+		CPacket head(ControlCmd::DownloadFile, (BYTE*)&data, 8);
 		CServerSocket::GetInstance().Send(head);
 		fseek(pFile, 0, SEEK_SET);
 		char buffer[1024] = "";
 		size_t rlen = 0;
 		do {
 			rlen = fread(buffer, 1, 1024, pFile);
-			CPacket pack(4, (BYTE*)buffer, rlen);
+			CPacket pack(ControlCmd::DownloadFile, (BYTE*)buffer, rlen);
 			CServerSocket::GetInstance().Send(pack);
 		} while (rlen >= 1024);
 		fclose(pFile);
 	}
-	CPacket pack(4, NULL, 0);
+	CPacket pack(ControlCmd::DownloadFile, NULL, 0);
 	CServerSocket::GetInstance().Send(pack);
 	return 0;
 }
@@ -218,7 +218,7 @@ int MouseEvent(CPacket& packet)
 			mouse_event(MOUSEEVENTF_MOVE, mouse.ptXY.x, mouse.ptXY.y, 0, GetMessageExtraInfo());
 			break;
 		}
-		CPacket pack(4, NULL, 0);
+		CPacket pack(ControlCmd::MouseEvent, NULL, 0);
 		CServerSocket::GetInstance().Send(pack);
 	}
 	else {
@@ -248,7 +248,7 @@ int SendScreen()
 		pStream->Seek(bg, STREAM_SEEK_SET, NULL);
 		PBYTE pData = (PBYTE)GlobalLock(hMem);
 		SIZE_T nSize = GlobalSize(hMem);
-		CPacket pack(6, pData, nSize);
+		CPacket pack(ControlCmd::ScreenSpy, pData, nSize);
 		CServerSocket::GetInstance().Send(pack);
 		GlobalUnlock(hMem);
 	}
@@ -339,7 +339,7 @@ int LockMachine()
 		_beginthreadex(NULL, 0, threadLockDlg, NULL, 0, &threadid);
 		TRACE("threadid=%d\r\n", threadid);
 	}
-	CPacket pack(7, NULL, 0);
+	CPacket pack(ControlCmd::LockMachine, NULL, 0);
 	CServerSocket::GetInstance().Send(pack);
 	return 0;
 }
@@ -349,14 +349,14 @@ int UnlockMachine()
 	//dlg.SendMessage(WM_KEYDOWN, 0x41, 0x01E0001);
 	//::SendMessage(dlg.m_hWnd, WM_KEYDOWN, 0x41, 0x01E0001);
 	PostThreadMessage(threadid, WM_KEYDOWN, 0x41, 0);
-	CPacket pack(8, NULL, 0);
+	CPacket pack(ControlCmd::UnlockMachine, NULL, 0);
 	CServerSocket::GetInstance().Send(pack);
 	return 0;
 }
 
 int TestConnect()
 {
-	CPacket pack(1981, NULL, 0);
+	CPacket pack(ControlCmd::TestConnect, NULL, 0);
 	bool ret = CServerSocket::GetInstance().Send(pack);
 	TRACE("Send ret = %d\r\n", ret);
 	return 0;
@@ -372,45 +372,45 @@ int DeleteLocalFile(CPacket& packet)
 		CP_ACP, 0, strPath.c_str(), strPath.size(), sPath,
 		sizeof(sPath) / sizeof(TCHAR));
 	DeleteFileA(strPath.c_str());
-	CPacket pack(9, NULL, 0);
+	CPacket pack(ControlCmd::DelFile, NULL, 0);
 	bool ret = CServerSocket::GetInstance().Send(pack);
 	TRACE("Send ret = %d\r\n", ret);
 	return 0;
 }
 
-int ExcuteCommand(int nCmd, CPacket& packet)
+int ExcuteCommand(ControlCmd nCmd, CPacket& packet)
 {
 	int ret = 0;
 	//全局的静态变量
 	switch (nCmd) {
-	case 1://查看磁盘分区
+	case ControlCmd::GetDisk://查看磁盘分区
 		ret = MakeDriverInfo();
 		break;
-	case 2://查看指定目录下的文件
+	case ControlCmd::GetFiles://查看指定目录下的文件
 		ret = MakeDirectoryInfo(packet);
 		break;
-	case 3://打开文件
+	case ControlCmd::RunFile://打开文件
 		ret = RunFile(packet);
 		break;
-	case 4://下载文件
+	case ControlCmd::DownloadFile://下载文件
 		ret = DownloadFile(packet);
 		break;
-	case 5://鼠标操作
-		ret = MouseEvent(packet);
-		break;
-	case 6://发送屏幕内容==>发送屏幕的截图
-		ret = SendScreen();
-		break;
-	case 7:
-		ret = LockMachine();
-		break;
-	case 8:
-		ret = UnlockMachine();
-		break;
-	case 9://删除文件
+	case ControlCmd::DelFile://删除文件
 		ret = DeleteLocalFile(packet);
 		break;
-	case 1981:
+	case ControlCmd::MouseEvent://鼠标操作
+		ret = MouseEvent(packet);
+		break;
+	case ControlCmd::ScreenSpy://发送屏幕内容==>发送屏幕的截图
+		ret = SendScreen();
+		break;
+	case ControlCmd::LockMachine:
+		ret = LockMachine();
+		break;
+	case ControlCmd::UnlockMachine:
+		ret = UnlockMachine();
+		break;
+	case ControlCmd::TestConnect:
 		ret = TestConnect();
 		break;
 	}
@@ -449,9 +449,9 @@ auto main() -> int
 				CPacket packet;
 				pserver.GetPacket(packet);
 				TRACE("DealCommand ret %s\r\n", packet.Data());
-				int cmd = packet.sCmd;
+				ControlCmd cmd = packet.sCmd;
 				TRACE("DealCommand ret %d\r\n", cmd);
-				if (cmd > 0) {
+				if (static_cast<WORD>(cmd) > 0) {
 					int ret = ExcuteCommand(cmd, packet);
 					if (ret != 0) {
 						TRACE("执行命令失败：%d ret=%d\r\n", cmd, ret);
