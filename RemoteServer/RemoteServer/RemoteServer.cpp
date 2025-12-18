@@ -299,11 +299,11 @@ unsigned __stdcall threadLockDlg(void* arg)
 	}
 
 	//窗口置顶
-	dlg.SetWindowPos(&dlg.wndTopMost, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE);
+	//dlg.SetWindowPos(&dlg.wndTopMost, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE);
 	//限制鼠标功能
-	ShowCursor(false);
+	//ShowCursor(false);
 	//隐藏任务栏
-	::ShowWindow(::FindWindow(_T("Shell_TrayWnd"), NULL), SW_HIDE);
+	//::ShowWindow(::FindWindow(_T("Shell_TrayWnd"), NULL), SW_HIDE);
 	//限制鼠标活动范围
 	dlg.GetWindowRect(rect);
 	rect.left = 0;

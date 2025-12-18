@@ -17,9 +17,9 @@
    <widget class="QWidget" name="horizontalLayoutWidget">
     <property name="geometry">
      <rect>
-      <x>550</x>
+      <x>470</x>
       <y>0</y>
-      <width>201</width>
+      <width>311</width>
       <height>80</height>
      </rect>
     </property>
@@ -46,12 +46,19 @@
        </property>
       </widget>
      </item>
+     <item>
+      <widget class="QPushButton" name="watchBtn">
+       <property name="text">
+        <string>远程监控</string>
+       </property>
+      </widget>
+     </item>
     </layout>
    </widget>
    <widget class="IPAddressEdit" name="ipEdit" native="true">
     <property name="geometry">
      <rect>
-      <x>270</x>
+      <x>170</x>
       <y>20</y>
       <width>271</width>
       <height>51</height>

@@ -7,6 +7,8 @@
 #include <functional>
 #include <QTreeWidgetItem>
 #include <QFile>
+#include "watchdlg.h"
+#include <QTimer>
 QT_BEGIN_NAMESPACE
 namespace Ui {
 class MainWindow;
@@ -24,9 +26,12 @@ public:
 public slots:
     void testConnect();
     void checkDriverInfo();
+    void watchServer();
     void dealCmd(CPacket& packet);
     void onFileTreeItemDoubleClicked(QTreeWidgetItem *item, int column);
     void onFileListContextMenu(const QPoint &pos);
+    void lockMachine();
+    void unLockMachine();
 
 private:
     Ui::MainWindow *ui;
@@ -36,6 +41,8 @@ private:
     QFile m_downloadFile;
     bool m_isDownloading;
     qint64 m_receivedSize;
+    WatchDlg *m_watchDlg;
+    QTimer *timer;
     void initHandler();
 };
 #endif // MAINWINDOW_H

@@ -17,6 +17,8 @@ MainWindow::MainWindow(QWidget *parent)
     ui->fileTree->setHeaderHidden(true);
     initHandler();
     m_tcpclient = new TcpClient(ui->ipEdit->getIP(), ui->portEdit->text().toUShort(), this);
+    m_watchDlg = new WatchDlg(this);
+    m_watchDlg->hide();
 
     connect(ui->testConnectBtn, &QPushButton::clicked, this, &MainWindow::testConnect);
     connect(ui->fileBtn, &QPushButton::clicked, this , &MainWindow::checkDriverInfo);
@@ -25,8 +27,19 @@ MainWindow::MainWindow(QWidget *parent)
     ui->fileList->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(ui->fileList, &QListWidget::customContextMenuRequested,
             this, &MainWindow::onFileListContextMenu);
+    connect(ui->watchBtn, &QPushButton::clicked, this, &MainWindow::watchServer);
+    connect(m_watchDlg, &WatchDlg::lockBtnClicked, this, &MainWindow::lockMachine);
+    connect(m_watchDlg, &WatchDlg::unLockBtnClicked, this, &MainWindow::unLockMachine);
 
-
+    timer = new QTimer(this);
+    connect(timer, &QTimer::timeout, this, [this](){
+        CPacket packet(6, NULL);
+        m_tcpclient->sendPacket(packet);
+    });
+    connect(m_watchDlg, &WatchDlg::stopWatch, this, [this](){
+        timer->stop();
+        qDebug() << "停止watch";
+    });
 }
 
 void MainWindow::testConnect() {
@@ -36,6 +49,25 @@ void MainWindow::testConnect() {
 
 void MainWindow::checkDriverInfo() {
     CPacket packet(1, NULL);
+    m_tcpclient->sendPacket(packet);
+}
+
+void MainWindow::watchServer() {
+    m_watchDlg->show();
+    timer->start(4000);
+    CPacket packet(6, NULL);
+    m_tcpclient->sendPacket(packet);
+}
+
+void MainWindow::lockMachine() {
+    CPacket packet(7, NULL);
+    m_tcpclient->sendPacket(packet);
+    // QTimer::singleShot(10000, [this](){
+    //     unLockMachine();
+    // });
+}
+void MainWindow::unLockMachine() {
+    CPacket packet(8, NULL);
     m_tcpclient->sendPacket(packet);
 }
 
@@ -163,6 +195,24 @@ void MainWindow::initHandler() {
                 m_receivedSize += len;
             }
         }
+    };
+    m_handler[6] = [this](CPacket& packet) {
+        QByteArray imgData = packet.strData;
+
+        QImage img;
+        // 直接从内存加载
+        if (img.loadFromData(imgData, "PNG")) {
+            // 调用自定义控件的更新函数
+            m_watchDlg->updateScreen(img);
+            qDebug() << "收到屏幕截图: " << img.width() << "x" << img.height()
+                     << " 数据大小:" << imgData.size();
+        }
+    };
+    m_handler[7] = [this](CPacket& packet) {
+        qDebug() << "锁机";
+    };
+    m_handler[8] = [this](CPacket& packet) {
+        qDebug() << "解锁";
     };
 
     m_handler[9] = [this](CPacket& packet){
