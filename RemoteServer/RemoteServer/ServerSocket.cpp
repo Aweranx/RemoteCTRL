@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "ServerSocket.h"
+#include "Command.h"
 
 CPacket::CPacket() :sHead(0), nLength(0), sCmd(ControlCmd::Invalid), sSum(0) {}
 CPacket::CPacket(ControlCmd nCmd, const BYTE* pData, size_t nSize) {
@@ -18,6 +19,13 @@ CPacket::CPacket(ControlCmd nCmd, const BYTE* pData, size_t nSize) {
 	{
 		sSum += BYTE(strData[j]) & 0xFF;
 	}
+}
+CPacket::CPacket(ControlCmd nCmd) {
+	sHead = 0xFEFF;
+	sCmd = nCmd;
+	strData.clear();
+	nLength = sizeof(WORD) + sizeof(WORD); // Cmd + Sum
+	sSum = 0;
 }
 CPacket::CPacket(const CPacket& pack) {
 	sHead = pack.sHead;

@@ -55,7 +55,7 @@ void MainWindow::checkDriverInfo() {
 
 void MainWindow::watchServer() {
     m_watchDlg->show();
-    timer->start(1000);
+    timer->start(500);
     CPacket packet(ControlCmd::ScreenSpy, NULL);
     m_tcpclient->sendPacket(packet);
 }
@@ -78,7 +78,13 @@ void MainWindow::sendMousePacket(const MOUSEEV& mouse)
 }
 
 void MainWindow::dealCmd(CPacket& packet) {
-    m_handler[packet.sCmd](packet);
+    auto cmd = packet.sCmd;
+    if(m_handler.find(cmd) != m_handler.end()) {
+        m_handler[cmd](packet);
+    } else {
+        qDebug() << "非法命令";
+    }
+
 }
 
 void MainWindow::initHandler() {
