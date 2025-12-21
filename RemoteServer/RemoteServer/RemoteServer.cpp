@@ -12,6 +12,7 @@
 #include <list>
 #include "Command.h"
 #include "TcpServer.h"
+#include "IOCPServer.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -36,8 +37,10 @@ auto main() -> int
         }
         else
         {
-			TcpServer server;
-			server.run();
+			/*TcpServer server;
+			server.run();*/
+            IOCPServer server;
+            server.StartServer();
         }
     }
     else

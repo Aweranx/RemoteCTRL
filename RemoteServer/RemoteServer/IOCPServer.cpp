@@ -1,7 +1,7 @@
 #include "pch.h"
 #include "IOCPServer.h"
 
-IOCPServer::IOCPServer(const std::string& ip, short port) {
+IOCPServer::IOCPServer(const std::string& ip, short port) : m_pool(ThreadPool(4)) {
 	m_hIOCP = INVALID_HANDLE_VALUE;
 	m_ListenSock = INVALID_SOCKET;
 	m_addr.sin_family = AF_INET;
@@ -18,7 +18,6 @@ IOCPServer::~IOCPServer()
 	}
 	sock2Client.clear();
 	CloseHandle(m_hIOCP);
-	//m_pool.Stop();
 }
 
 void IOCPServer::CreateSocket()
@@ -80,8 +79,7 @@ void IOCPServer::StartServer() {
 		return;
 	}
 	CreateIoCompletionPort((HANDLE)m_ListenSock, m_hIOCP, (ULONG_PTR)this, 0);
-	//m_pool.Invoke();
-	//m_pool.DispatchWorker(ThreadWorker(this, (FUNCTYPE)&EdoyunServer::threadIocp));
+	m_pool.enqueue([this]() {this->threadIocp(); });
 	if (!WaitNewAccept()) return;
 	// m_pool.DispatchWorker(ThreadWorker(this, (FUNCTYPE)&EdoyunServer::threadIocp));
 	// m_pool.DispatchWorker(ThreadWorker(this, (FUNCTYPE)&EdoyunServer::threadIocp));
@@ -93,27 +91,27 @@ int IOCPServer::threadIocp() {
 	OVERLAPPED* lpOverlapped = NULL;
 	if (GetQueuedCompletionStatus(m_hIOCP, &tranferred, &CompletionKey, &lpOverlapped, INFINITE)) {
 		if (CompletionKey != 0) {
-			OverLapped* pOverlapped = CONTAINING_RECORD(lpOverlapped, EdoyunOverlapped, m_overlapped);//
+			OverLapped* pOverlapped = CONTAINING_RECORD(lpOverlapped, OverLapped, m_overlapped);
 			TRACE("pOverlapped->m_operator %d \r\n", pOverlapped->m_operator);
 			pOverlapped->m_server = this;
 			switch (pOverlapped->m_operator) {
 			case OverlappedOperator::OAccept:
 			{
 				AcceptOverLapped* pOver = (AcceptOverLapped*)pOverlapped;
-				m_pool.DispatchWorker(pOver->m_worker);
+				m_pool.enqueue(pOver->m_worker);
 			}
 			break;
 			case OverlappedOperator::ORecv:
 			{
 				RecvOverLapped* pOver = (RecvOverLapped*)pOverlapped;
-				m_pool.DispatchWorker(pOver->m_worker);
+				m_pool.enqueue(pOver->m_worker);
 			}
 			break;
 			case OverlappedOperator::OSend:
 			{
 				TRACE("Send");
 				SendOverLapped* pOver = (SendOverLapped*)pOverlapped;
-				m_pool.DispatchWorker(pOver->m_worker);
+				m_pool.enqueue(pOver->m_worker);
 			}
 			break;
 			case OverlappedOperator::OError:
@@ -130,8 +128,17 @@ int IOCPServer::threadIocp() {
 	return 0;
 }
 
+int IOCPClient::Recv()
+{
+	int ret = recv(m_ClientSock, m_recvbuffer.data() + m_usedbuffer, m_recvbuffer.size() - m_usedbuffer, 0);
+	if (ret <= 0) return -1;
+	m_usedbuffer += (size_t)ret;
+
+	return ret;
+}
+
 AcceptOverLapped::AcceptOverLapped() {
-	m_worker = ThreadWorker(this, (FUNCTYPE)&AcceptOverlapped<op>::AcceptWorker);
+	m_worker = [this]() { return this->AcceptWorker(); };
 	m_operator = OverlappedOperator::OAccept;
 	memset(&m_overlapped, 0, sizeof(m_overlapped));
 	m_buffer.resize(1024);
@@ -164,7 +171,7 @@ int AcceptOverLapped::AcceptWorker() {
 }
 
 SendOverLapped::SendOverLapped() {
-	m_worker = ThreadWorker(this, (FUNCTYPE)&SendOverLapped<op>::SendWorker);
+	m_worker = [this]() { return this->SendWorker(); };
 	m_operator = OverlappedOperator::OSend;
 	memset(&m_overlapped, 0, sizeof(m_overlapped));
 	m_buffer.resize(1024 * 256);
@@ -187,7 +194,7 @@ int SendOverLapped::SendWorker() {
 }
 
 RecvOverLapped::RecvOverLapped() {
-	m_worker = ThreadWorker(this, (FUNCTYPE)&RecvOverLapped<op>::RecvWorker);
+	m_worker = [this]() { return this->RecvWorker(); };
 	m_operator = OverlappedOperator::ORecv;
 	memset(&m_overlapped, 0, sizeof(m_overlapped));
 	m_buffer.resize(1024 * 256);

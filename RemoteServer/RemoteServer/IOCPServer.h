@@ -7,11 +7,45 @@
 #include "Packet.h"
 #include <vector>
 #include "Command.h"
-class OverLapped;
-class AcceptOverLapped;
-class RecvOverLapped;
-class SendOverLapped;
 class IOCPClient;
+class IOCPServer;
+enum class OverlappedOperator : DWORD {
+	ONone,
+	OAccept,
+	ORecv,
+	OSend,
+	OError
+};
+class OverLapped {
+public:
+	OverLapped() = default;
+	OVERLAPPED m_overlapped;
+	OverlappedOperator m_operator;
+	std::vector<char> m_buffer; //缓冲区
+	std::function<int()> m_worker;//处理函数
+	IOCPServer* m_server; //服务器对象
+	IOCPClient* m_client; //对应的客户端
+	WSABUF m_wsabuffer;
+	virtual ~OverLapped() { m_buffer.clear(); }
+};
+
+class AcceptOverLapped : public OverLapped {
+public:
+	AcceptOverLapped();
+	int AcceptWorker();
+};
+class RecvOverLapped : public OverLapped {
+public:
+	RecvOverLapped();
+	int RecvWorker();
+	CCommand m_cmd;
+};
+class SendOverLapped : public OverLapped {
+public:
+	SendOverLapped();
+	int SendWorker();
+};;
+
 // 管理多个client生命周期，封装IOCP操作
 class IOCPServer
 {
@@ -71,6 +105,7 @@ public:
 	sockaddr_in* GetLocalAddr() { return &m_laddr; }
 	sockaddr_in* GetRemoteAddr() { return &m_raddr; }
 	size_t GetBufferSize()const { return m_recvbuffer.size(); }
+	int Recv();
 
 
 	SOCKET m_ClientSock;
@@ -87,41 +122,6 @@ public:
 	sockaddr_in m_raddr;
 	bool m_isbusy;
 };
-enum class OverlappedOperator : DWORD {
-	ONone,
-	OAccept,
-	ORecv,
-	OSend,
-	OError
-};
-class OverLapped {
-public:
-	OverLapped() = default;
-	OVERLAPPED m_overlapped;
-	OverlappedOperator m_operator;
-	std::vector<char> m_buffer; //缓冲区
-	ThreadWorker m_worker;//处理函数
-	IOCPServer* m_server; //服务器对象
-	IOCPClient* m_client; //对应的客户端
-	WSABUF m_wsabuffer;
-	virtual ~OverLapped() { m_buffer.clear(); }
-};
 
-class AcceptOverLapped : public OverLapped {
-public:
-	AcceptOverLapped();
-	int AcceptWorker();
-};
-class RecvOverLapped : public OverLapped {
-public:
-	RecvOverLapped();
-	int RecvWorker();
-	CCommand m_cmd;
-};
-class SendOverLapped : public OverLapped {
-public:
-	SendOverLapped();
-	int SendWorker();
-};
 
 
